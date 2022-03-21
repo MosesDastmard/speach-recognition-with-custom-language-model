@@ -1,9 +1,10 @@
-ERRORS_PATH = "data/errors/"
+import os
+DATA_PATH = 'data/'
+ERRORS_PATH = DATA_PATH + "errors/"
 NULL_CHAR = "?"
-IGNORE_PUNCT = ","
-MAPPING_JSON_FILE = "data/mapping.json"
-RAW_DATASET_PATH = "data/it.medium.txt"
-PREPROCESSED_DATASET_PATH = "data/it.preprocessed.txt"
+IGNORE_PUNC = ","
+CC100_PREPROCESSED_PATH = DATA_PATH + "it.preprocessed.txt"
+CC100_CORRUPTED_PATH = DATA_PATH + "it.corrupted.txt"
 CHAR_SET = [
             ' ',
             "'",
@@ -46,8 +47,75 @@ CHAR_SET = [
             'Ú',
             'Š',
 ]
-
+CHAR_SET = [c.lower() for c in CHAR_SET]
+W2V_CHAR_SET = [
+                '',
+                ' ',
+                "'",
+                '-',
+                'a',
+                'b',
+                'c',
+                'd',
+                'e',
+                'f',
+                'g',
+                'h',
+                'i',
+                'j',
+                'k',
+                'l',
+                'm',
+                'n',
+                'o',
+                'p',
+                'q',
+                'r',
+                's',
+                't',
+                'u',
+                'v',
+                'w',
+                'x',
+                'y',
+                'z',
+                'à',
+                'á',
+                'è',
+                'é',
+                'ì',
+                'í',
+                'ò',
+                'ó',
+                'ù',
+                'ú',
+                'š'
+                ]
 MAX_CHAR = 100
 MAX_CHUNK_SIZE = 2048
 STRIDE = 50
 PARTITION_SIZE = 1000000 #1Mbyte
+
+###################### DATASET ###########################
+COMMON_VOICE_URL = "https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com/cv-corpus-7.0-2021-07-21/cv-corpus-7.0-2021-07-21-it.tar.gz"
+CC100_URL = "http://data.statmt.org/cc-100/it.txt.xz"
+CC100_TAR_PATH = DATA_PATH + "it.txt.xz"
+COMMON_VOICE_TAR_PATH = DATA_PATH + "cv-corpus-7.0-2021-07-21-it.tar.gz"
+COMMON_VOICE_PATH = DATA_PATH + "cv-corpus-7.0-2021-07-21-it"
+CC100_PATH = DATA_PATH + "it.txt"
+MODEL_DIR = "model/"
+TOKENIZER_MODEL_PATH = MODEL_DIR + "tokenizer.json"
+KENLM_MODEL_PATH = MODEL_DIR + "it.arpa"
+MAPPING_MODEL_PATH = MODEL_DIR + "mapping.json"
+KENLM_TMP_DIR = MODEL_DIR + "tmp"
+ARRAY_EXTENTION = ".array"
+SAMPLE_RATE = 16000
+MODEL_LANGUAGE = "it"
+MODEL_W2V_PATH = "jonatasgrosman/wav2vec2-large-xlsr-53-italian"
+PREDICTION_EXTENTION = ".txt"
+LOGITS_EXTENTION = '.logits'
+COMMON_VOICE_DATA_PATH = os.path.join(COMMON_VOICE_PATH ,"cv-corpus-7.0-2021-07-21", 'it')
+CLIPS_PATH = os.path.join(COMMON_VOICE_DATA_PATH, 'clips')
+ARRAYS_PATH = os.path.join(COMMON_VOICE_DATA_PATH, 'array')
+LOGITS_PATH = os.path.join(COMMON_VOICE_DATA_PATH, 'logits')
+W2V_PREDICTION_PATH = os.path.join(COMMON_VOICE_DATA_PATH, 'w2v_predictions')

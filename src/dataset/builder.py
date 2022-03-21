@@ -1,5 +1,4 @@
 from pyspark.sql import SparkSession
-from src.util import mapper
 from nltk.tokenize import sent_tokenize, word_tokenize
 import nltk
 import multiprocessing
@@ -8,17 +7,20 @@ from src.util import config
 import os
 from argparse import ArgumentParser
 from src.util.functions import purify_text
-map_function = mapper.Session().get_mapper()
+from src.util.detector import Detector
+mapper = Detector().load(config.MAPPING_MODEL_PATH)
 
 class Session:
-    def __init__(self, input_text_file_path, output_text_file_path) -> None:
+    def __init__(self, input_text_file_path, output_text_file_path, mode) -> None:
         self.input_text_file_path = input_text_file_path
         self.output_text_file_path = output_text_file_path
+        self.mode = mode
         
     def start_saprk_session(self):
         cores_number = multiprocessing.cpu_count()
-        self.spark = SparkSession.builder.appName('dataset_builder').master(f'local[{2*cores_number}]').getOrCreate()
-    
+        self.spark = SparkSession.builder.appName('dataset_builder').master(f'local[{cores_number}]').getOrCreate()
+        print(f"spark runs on {cores_number} cores.")
+
     def get_partition_number(self):
         input_file_size = os.stat(self.input_text_file_path).st_size
         partition_number = int(input_file_size/config.PARTITION_SIZE)
@@ -28,10 +30,12 @@ class Session:
     def compute(self):
         partition_number = self.get_partition_number()
         ref_rdd = self.spark.sparkContext.textFile(self.input_text_file_path, minPartitions=partition_number)
-        ref_rdd = ref_rdd.flatMap(sent_tokenize)
-        ref_rdd = ref_rdd.map(lambda x: x.upper())
-        ref_rdd = ref_rdd.map(purify_text)
-        ref_rdd = ref_rdd.filter(lambda x: len(word_tokenize(x)) > 3)
+        if self.mode == 'preprocess':
+            ref_rdd = ref_rdd.flatMap(sent_tokenize)
+            ref_rdd = ref_rdd.map(purify_text)
+            ref_rdd = ref_rdd.filter(lambda x: len(word_tokenize(x)) > 3)
+        if self.mode == 'corrupted':
+            ref_rdd = ref_rdd.map(mapper)
         os.system(f"rm -rf {self.output_text_file_path}")
         ref_rdd.saveAsTextFile(self.output_text_file_path)
         
@@ -58,12 +62,24 @@ class Session:
         self.merge()
 
 class Preprocess:
-    def __init__(self, input_text_file=config.RAW_DATASET_PATH, output_text_file=config.PREPROCESSED_DATASET_PATH):
+    def __init__(self, input_text_file=config.CC100_PATH, output_text_file=config.CC100_PREPROCESSED_PATH):
         if input_text_file is None:
-            input_text_file=config.RAW_DATASET_PATH
+            input_text_file=config.CC100_PATH
         if output_text_file is None:
-            output_text_file = config.PREPROCESSED_DATASET_PATH
-        self.session = Session(input_text_file, output_text_file)
+            output_text_file = config.CC100_PREPROCESSED_PATH
+        self.session = Session(input_text_file, output_text_file, 'preprocess')
+    
+    def run(self):
+        self.session.run()
+
+
+class Corrupted:
+    def __init__(self, input_text_file=config.CC100_PREPROCESSED_PATH, output_text_file=config.CC100_CORRUPTED_PATH):
+        if input_text_file is None:
+            input_text_file=config.CC100_PREPROCESSED_PATH
+        if output_text_file is None:
+            output_text_file = config.CC100_CORRUPTED_PATH
+        self.session = Session(input_text_file, output_text_file, 'corrupted')
     
     def run(self):
         self.session.run()

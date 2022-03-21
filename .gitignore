@@ -132,4 +132,3 @@ dmypy.json
 *.sqlite
 data
 docs
-env

@@ -1,6 +1,17 @@
 from . import config
 import re
+import subprocess
+
+class Process:
+    def __init__(self, command) -> None:
+        self.command = command
+
+    def run(self):
+        subprocess.run(self.command, shell=True, check=True)
+
+
 def purify_text(text):
+    text = text.lower()
     regex = ",".join(list(config.CHAR_SET))
     regex = fr'[{regex}]'
     pure_text = "".join(re.findall(regex, text)).lower()
