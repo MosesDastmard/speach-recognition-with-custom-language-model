@@ -14,6 +14,7 @@ from src.tokenizer.bpe import BPE
 #     flag.put(config.COMMON_VOICE_PATH)
 
 
+
 # # download text dataset
 # flag = Flag('CC100')
 # if not flag.exists(config.CC100_PATH):
