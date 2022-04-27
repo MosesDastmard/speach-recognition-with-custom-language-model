@@ -132,3 +132,11 @@ dmypy.json
 *.sqlite
 data
 docs
+*.ipynb
+libs/
+model/
+experimental/
+checkpoints/
+.vscode/
+*.zip
+*.txt
