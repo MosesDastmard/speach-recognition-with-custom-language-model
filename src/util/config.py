@@ -4,7 +4,13 @@ ERRORS_PATH = DATA_PATH + "errors/"
 NULL_CHAR = "?"
 IGNORE_PUNC = ","
 CC100_PREPROCESSED_PATH = DATA_PATH + "it.preprocessed.txt"
+CC100_PREPROCESSED_SMALL_PATH = DATA_PATH + "it.preprocessed.small.txt"
+CC100_SMALL_SIZE = 400000
 CC100_CORRUPTED_PATH = DATA_PATH + "it.corrupted.txt"
+CC100_CORRUPTED_SMALL_PATH = DATA_PATH + "it.corrupted.small.txt"
+CC100_CLEAN_CORRUPTED_PATH = DATA_PATH + "it.clean.corrupted.txt"
+CC100_CLEAN_CORRUPTED_SMALL_PATH = DATA_PATH + "it.clean.corrupted.small.txt"
+MAX_TOKEN_INPUT = 32
 CHAR_SET = [
             ' ',
             "'",
@@ -92,10 +98,11 @@ W2V_CHAR_SET = [
                 'š'
                 ]
 MAX_CHAR = 100
+MAX_TOKEN_LEN = MAX_CHAR + 2
 MAX_CHUNK_SIZE = 2048
-STRIDE = 50
-PARTITION_SIZE = 1000000 #1Mbyte
-
+STRIDE = 25
+PARTITION_SIZE = 16000000 #32Mbyte
+MAX_TOKENS_NUM = 4000
 ###################### DATASET ###########################
 COMMON_VOICE_URL = "https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com/cv-corpus-7.0-2021-07-21/cv-corpus-7.0-2021-07-21-it.tar.gz"
 CC100_URL = "http://data.statmt.org/cc-100/it.txt.xz"
@@ -103,8 +110,10 @@ CC100_TAR_PATH = DATA_PATH + "it.txt.xz"
 COMMON_VOICE_TAR_PATH = DATA_PATH + "cv-corpus-7.0-2021-07-21-it.tar.gz"
 COMMON_VOICE_PATH = DATA_PATH + "cv-corpus-7.0-2021-07-21-it"
 CC100_PATH = DATA_PATH + "it.txt"
+CC100_SMALL_PATH = DATA_PATH + "it.small.txt"
 MODEL_DIR = "model/"
 TOKENIZER_MODEL_PATH = MODEL_DIR + "tokenizer.json"
+TOKENIZER_MODEL_SMALL_PATH = MODEL_DIR + "tokenizer.small.json"
 KENLM_MODEL_PATH = MODEL_DIR + "it.arpa"
 MAPPING_MODEL_PATH = MODEL_DIR + "mapping.json"
 KENLM_TMP_DIR = MODEL_DIR + "tmp"
@@ -119,3 +128,4 @@ CLIPS_PATH = os.path.join(COMMON_VOICE_DATA_PATH, 'clips')
 ARRAYS_PATH = os.path.join(COMMON_VOICE_DATA_PATH, 'array')
 LOGITS_PATH = os.path.join(COMMON_VOICE_DATA_PATH, 'logits')
 W2V_PREDICTION_PATH = os.path.join(COMMON_VOICE_DATA_PATH, 'w2v_predictions')
+MODE = 'full'

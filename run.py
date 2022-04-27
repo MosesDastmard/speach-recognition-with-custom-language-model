@@ -1,11 +1,11 @@
-from src.dataset.download import Download, Extract
-from src.kenlm import TrainKenlm
-from src.dataset.builder import Preprocess, Corrupted
+# from src.dataset.download import Download, Extract
+# from src.kenlm import TrainKenlm
 from src.util import config
 from libs.datil.flag import Flag
-from src.prediction.w2v import W2V
+# from src.prediction.w2v import W2V
 from src.error import Error
 from src.tokenizer.bpe import BPE
+
 # #download common voice dataset
 # flag = Flag('commonvoice')
 # if not flag.exists(config.COMMON_VOICE_PATH):
@@ -21,10 +21,18 @@ from src.tokenizer.bpe import BPE
 #     Extract(config.CC100_TAR_PATH, config.CC100_PATH).run()
 #     flag.put(config.CC100_PATH)
 
+
 # flag = Flag('preprocessing')
-# if not flag.exists(config.CC100_PREPROCESSED_PATH):
-#     Preprocess(config.CC100_PATH, config.CC100_PREPROCESSED_PATH).run()
-#     flag.put(config.CC100_PREPROCESSED_PATH)
+# if config.MODE == 'small':
+#     output_file = config.CC100_PREPROCESSED_SMALL_PATH
+#     input_file = config.CC100_SMALL_PATH
+#     flag_shrink = Flag('shrink')
+#     if not flag_shrink.exists(input_file):
+#         Shrink(config.CC100_PATH, config.CC100_SMALL_PATH).run()
+#         flag_shrink.put(input_file)
+# if not flag.exists(output_file):
+#     Preprocess(input_file, output_file).run()
+#     flag.put(output_file)
 
 # flag = Flag('trainkenlm')
 # if not flag.exists(config.KENLM_MODEL_PATH):
@@ -43,14 +51,41 @@ from src.tokenizer.bpe import BPE
 
 
 # flag = Flag('corrupted')
-# if not flag.exists(config.CC100_CORRUPTED_PATH):
-#     Corrupted(config.CC100_PREPROCESSED_PATH, config.CC100_CORRUPTED_PATH).run()
-#     flag.put(config.CC100_CORRUPTED_PATH)
+# if config.MODE == 'small':
+#     input_file = config.CC100_PREPROCESSED_SMALL_PATH
+#     output_file = config.CC100_CORRUPTED_SMALL_PATH
+# else:
+#     input_file = config.CC100_PREPROCESSED_PATH
+#     output_file = config.CC100_CORRUPTED_PATH
+
+# if not flag.exists(output_file):
+#     Corrupted(input_file, output_file).run()
+#     flag.put(output_file)
+
+
 
 
 flag = Flag('bpe')
-if not flag.exists(config.TOKENIZER_MODEL_PATH):
-    input_files = [config.CC100_CORRUPTED_PATH, config.CC100_PREPROCESSED_PATH]
+if config.MODE == 'small':
+    input_files = [config.CC100_PREPROCESSED_SMALL_PATH, config.CC100_CORRUPTED_SMALL_PATH]
+    model_path = config.TOKENIZER_MODEL_SMALL_PATH
+else:
+    input_files = [config.CC100_PREPROCESSED_PATH, config.CC100_CORRUPTED_PATH]
     model_path = config.TOKENIZER_MODEL_PATH
+
+if not flag.exists(model_path):
     BPE(input_files, model_path).train()
-    flag.put(config.TOKENIZER_MODEL_PATH)
+    flag.put(model_path)
+
+from src.dataset.builder import Preprocess, Corrupted, CleanCorrupted, Shrink
+
+flag = Flag('clean.corrupted')
+if config.MODE == 'small':
+    input_file = config.CC100_PREPROCESSED_SMALL_PATH
+    output_file = config.CC100_CLEAN_CORRUPTED_SMALL_PATH
+else:
+    input_file = config.CC100_PREPROCESSED_PATH
+    output_file = config.CC100_CLEAN_CORRUPTED_PATH
+if not flag.exists(output_file):
+    CleanCorrupted(input_file, output_file).run()
+    flag.put(output_file)
