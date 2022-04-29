@@ -20,10 +20,10 @@ def join_tokens(clean_sentence):
     corrupted_sentence = mapper(clean_sentence)
     tokens_clean = bpe_tokenizer.tokenize(clean_sentence, result='tokens')
     tokens_corrupted = bpe_tokenizer.tokenize(corrupted_sentence, result='tokens')
-    mutual_len = max([len(tokens_clean), len(tokens_corrupted)])
-    if mutual_len > len(tokens_clean):
-        for _ in range(mutual_len-len(tokens_clean)):
-            tokens_clean.insert(-1, '[PAD]')
+    # mutual_len = max([len(tokens_clean), len(tokens_corrupted)])
+    # if mutual_len > len(tokens_clean):
+    #     for _ in range(mutual_len-len(tokens_clean)):
+    #         tokens_clean.insert(-1, '[PAD]')
     joint_tokens = "~".join(tokens_corrupted) + "|" + "~".join(tokens_clean)
     return joint_tokens
 
