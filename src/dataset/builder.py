@@ -36,21 +36,22 @@ def filter(token_format_sentence):
     return True
 
 def slice_sentence(sentence):
-    window = 64
-    stride = 32
+    window = int(config.MAX_TOKEN_INPUT*0.7)
+    stride = window//2
+    words = nltk.word_tokenize(sentence, language='italian')
     sentences = []
-    if len(sentence) < window:
+    if len(words) < window:
         sentences.append(sentence)
     else:
         start = 0
         end = window
-        while end < len(sentence):
-            sentence_ = sentence[start:end]
+        while end < len(words):
+            sentence_ = " ".join(words[start:end])
             sentences.append(sentence_)
             start += stride
             end += stride
-        if start < len(sentence):
-            sentence_ = sentence[start:]
+        if start < len(words):
+            sentence_ = " ".join(words[start:])
             sentences.append(sentence_)
     return sentences
 

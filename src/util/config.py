@@ -101,8 +101,8 @@ MAX_CHAR = 100
 MAX_TOKEN_LEN = MAX_CHAR + 2
 MAX_CHUNK_SIZE = 2048
 STRIDE = 25
-PARTITION_SIZE = 16000000 #32Mbyte
-MAX_TOKENS_NUM = 4000
+PARTITION_SIZE = 16000000 #16/100Mbyte
+VOCAB_SIZE = 40000
 ###################### DATASET ###########################
 COMMON_VOICE_URL = "https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com/cv-corpus-7.0-2021-07-21/cv-corpus-7.0-2021-07-21-it.tar.gz"
 CC100_URL = "http://data.statmt.org/cc-100/it.txt.xz"

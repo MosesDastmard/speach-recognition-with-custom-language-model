@@ -12,7 +12,7 @@ class BPE:
 
     def train(self):
         tokenizer = Tokenizer(BPETokenizer(unk_token='[UNK]'))
-        trainer = BpeTrainer(vocab_size=200, special_tokens=['[UNK]', '[START]', '[END]', '[PAD]'], end_of_word_suffix="_")
+        trainer = BpeTrainer(vocab_size=config.VOCAB_SIZE, special_tokens=['[UNK]', '[START]', '[END]', '[PAD]'], end_of_word_suffix="_", )
         tokenizer.pre_tokenizer = Whitespace()
         tokenizer.train(files=self.input_files, trainer=trainer)
         tokenizer.save(self.model_path)
@@ -27,13 +27,6 @@ class BPE:
                 self.start_id = self.__get_start_id()
                 self.end_id = self.__get_end_id()
 
-            @staticmethod
-            def tf_tokenize(input):
-                sentences_list = [sentence.decode('utf-8') for sentence in input.numpy().tolist()]
-                tokens_list = [[1] + [token + 3 for token in token_info.ids] + [2] for token_info in base_tokenizer.encode_batch(sentences_list)]
-                tokens_ragged = tf.ragged.constant(tokens_list, dtype=tf.int64)
-                tokens_tensor = tokens_ragged.to_tensor(shape=[tokens_ragged.shape[0], config.MAX_TOKEN_LEN])
-                return tokens_tensor
 
             def tokenize(self, input, result='ids'):
                 if result == 'ids':

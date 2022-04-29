@@ -66,17 +66,17 @@ from src.tokenizer.bpe import BPE
 
 
 
-flag = Flag('bpe')
-if config.MODE == 'small':
-    input_files = [config.CC100_PREPROCESSED_SMALL_PATH, config.CC100_CORRUPTED_SMALL_PATH]
-    model_path = config.TOKENIZER_MODEL_SMALL_PATH
-else:
-    input_files = [config.CC100_PREPROCESSED_PATH, config.CC100_CORRUPTED_PATH]
-    model_path = config.TOKENIZER_MODEL_PATH
+# flag = Flag('bpe')
+# if config.MODE == 'small':
+#     input_files = [config.CC100_PREPROCESSED_SMALL_PATH, config.CC100_CORRUPTED_SMALL_PATH]
+#     model_path = config.TOKENIZER_MODEL_SMALL_PATH
+# else:
+#     input_files = [config.CC100_PREPROCESSED_PATH, config.CC100_CORRUPTED_PATH]
+#     model_path = config.TOKENIZER_MODEL_PATH
 
-if not flag.exists(model_path):
-    BPE(input_files, model_path).train()
-    flag.put(model_path)
+# if not flag.exists(model_path):
+#     BPE(input_files, model_path).train()
+#     flag.put(model_path)
 
 from src.dataset.builder import Preprocess, Corrupted, CleanCorrupted, Shrink
 
