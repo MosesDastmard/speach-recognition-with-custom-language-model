@@ -1,4 +1,3 @@
-from sklearn import metrics
 import tensorflow as tf
 from src.util import config
 import os
@@ -19,71 +18,6 @@ from tensorflow.keras.utils import Progbar, GeneratorEnqueuer
 from tensorflow.keras.callbacks import CSVLogger, TensorBoard, ModelCheckpoint
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
-
-
-class Encoder(tf.keras.layers.Layer):
-    def __init__(self, num_layers, d_model, num_heads, dff, input_vocab_size, maximum_position_encoding, rate=0.1):
-        super(Encoder, self).__init__()
-
-        self.d_model = d_model
-        self.num_layers = num_layers
-        self.embedding = tf.keras.layers.Embedding(input_vocab_size, d_model, name="enc_embedding")
-        self.pos_encoding = positional_encoding(maximum_position_encoding, self.d_model)
-
-        self.enc_layers = [EncoderLayer(d_model, num_heads, dff, rate, f"enc_layer_{i}") for i in range(num_layers)]
-        self.dropout = tf.keras.layers.Dropout(rate, name="enc_dropout")
-
-    def call(self, x, mask=None):
-        seq_len = tf.shape(x)[1]
-
-        # adding embedding and position encoding.
-        x = self.embedding(x)  # (batch_size, input_seq_len, d_model)
-        x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
-        x += self.pos_encoding[:, :seq_len, :]
-
-        x = self.dropout(x)
-
-        for i in range(self.num_layers):
-            x = self.enc_layers[i](x, mask)
-
-        return x  # (batch_size, input_seq_len, d_model)
-
-    def get_config(self):
-        """Return the config of the layer"""
-
-        config = super(Encoder, self).get_config()
-        return config
-
-
-class EncoderLayer(tf.keras.layers.Layer):
-    def __init__(self, d_model, num_heads, dff, rate=0.1, name="enc_layer"):
-        super(EncoderLayer, self).__init__()
-
-        self.mha = MultiHeadAttention(d_model, num_heads, name=f"{name}_attention")
-        self.ffn = point_wise_feed_forward_network(d_model, dff)
-
-        self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name=f"{name}_norm_1")
-        self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name=f"{name}_norm_2")
-
-        self.dropout1 = tf.keras.layers.Dropout(rate, name=f"{name}_dropout_1")
-        self.dropout2 = tf.keras.layers.Dropout(rate, name=f"{name}_dropout_2")
-
-    def call(self, x, mask=None):
-        attn_output, _ = self.mha(x, x, x, mask)  # (batch_size, input_seq_len, d_model)
-        attn_output = self.dropout1(attn_output)
-        out1 = self.layernorm1(x + attn_output)  # (batch_size, input_seq_len, d_model)
-
-        ffn_output = self.ffn(out1)  # (batch_size, input_seq_len, d_model)
-        ffn_output = self.dropout2(ffn_output)
-        out2 = self.layernorm2(out1 + ffn_output)  # (batch_size, input_seq_len, d_model)
-
-        return out2
-
-    def get_config(self):
-        """Return the config of the layer"""
-
-        config = super(EncoderLayer, self).get_config()
-        return config
 
 
 class Decoder(tf.keras.layers.Layer):
@@ -112,15 +46,13 @@ class Decoder(tf.keras.layers.Layer):
         x = self.dropout(x)
 
         for i in range(self.num_layers):
-            x, block1, block2 = self.dec_layers[i](x, enc_output, look_ahead_mask, padding_mask)
+            x = self.dec_layers[i](x, look_ahead_mask)
 
-            attention_weights["decoder_layer{}_block1".format(i + 1)] = block1
-            attention_weights["decoder_layer{}_block2".format(i + 1)] = block2
 
         # x.shape == (batch_size, target_seq_len, d_model)
         output = self.dec_output(x)
 
-        return output, attention_weights
+        return output
 
     def get_config(self):
         """Return the config of the layer"""
@@ -133,8 +65,7 @@ class DecoderLayer(tf.keras.layers.Layer):
     def __init__(self, d_model, num_heads, dff, rate=0.1, name="dec_layer"):
         super(DecoderLayer, self).__init__()
 
-        self.mha1 = MultiHeadAttention(d_model, num_heads, name=f"{name}_attention_1")
-        self.mha2 = MultiHeadAttention(d_model, num_heads, name=f"{name}_attention_2")
+        self.mha = MultiHeadAttention(d_model, num_heads, name=f"{name}_attention_1")
 
         self.ffn = point_wise_feed_forward_network(d_model, dff)
 
@@ -146,22 +77,18 @@ class DecoderLayer(tf.keras.layers.Layer):
         self.dropout2 = tf.keras.layers.Dropout(rate, name=f"{name}_dropout_2")
         self.dropout3 = tf.keras.layers.Dropout(rate, name=f"{name}_dropout_3")
 
-    def call(self, x, enc_output, look_ahead_mask=None, padding_mask=None):
-        # enc_output.shape == (batch_size, input_seq_len, d_model)
+    def call(self, x, look_ahead_mask=None):
 
-        attn1, attn_weights_block1 = self.mha1(x, x, x, look_ahead_mask)  # (batch_size, target_seq_len, d_model)
-        attn1 = self.dropout1(attn1)
-        out1 = self.layernorm1(attn1 + x)
+        attn, _ = self.mha(x, x, x, look_ahead_mask)  # (batch_size, target_seq_len, d_model)
+        attn = self.dropout1(attn)
+        out = self.layernorm1(attn + x)
 
-        attn2, attn_weights_block2 = self.mha2(enc_output, enc_output, out1, padding_mask)  # (batch_size, target_seq_len, d_model)
-        attn2 = self.dropout2(attn2)
-        out2 = self.layernorm2(attn2 + out1)  # (batch_size, target_seq_len, d_model)
 
-        ffn_output = self.ffn(out2)  # (batch_size, target_seq_len, d_model)
+        ffn_output = self.ffn(out)  # (batch_size, target_seq_len, d_model)
         ffn_output = self.dropout3(ffn_output)
-        out3 = self.layernorm3(ffn_output + out2)  # (batch_size, target_seq_len, d_model)
+        out = self.layernorm3(ffn_output)  # (batch_size, target_seq_len, d_model)
 
-        return out3, attn_weights_block1, attn_weights_block2
+        return out
 
     def get_config(self):
         """Return the config of the layer"""
@@ -332,17 +259,44 @@ def create_look_ahead_mask(size):
     return mask  # (seq_len, seq_len)
 
 
+@tf.function
 def loss_func(y_true, y_pred):
-    y_pred = y_pred
-    loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
-    mask = tf.math.logical_not(tf.math.equal(y_true, 0))
-    loss_ = loss_object(y_true, y_pred)
+    label_length = tf.ones_like(y_true)[:,0]*MAX_TOKENS
+    # logit_length = tf.constant(y_pred.shape[1], dtype=tf.int32, shape=y_pred.shape[0])
+    # print(y_true.shape)
+    # print(y_pred.shape)
+    # print(label_length.shape)
+    # print(logit_length.shape)
+    # exit()
+    losses = tf.nn.ctc_loss(
+                            labels=y_true,
+                            logits=y_pred,
+                            label_length=label_length,
+                            logit_length=label_length,
+                            logits_time_major=False,
+                            blank_index=0,
+                            )
+    # losses = tf.keras.backend.ctc_batch_cost(y_true, y_pred, input_length, label_length)
+    return tf.reduce_mean(losses)
 
-    mask = tf.cast(mask, dtype=loss_.dtype)
-    loss_ *= mask
 
-    return tf.reduce_sum(loss_) / tf.reduce_sum(mask)
+def CTCLoss(y_true, y_pred):
+    # Compute the training-time loss value
+    batch_len = tf.cast(tf.shape(y_true)[0], dtype="int64")
+    input_length = tf.cast(tf.shape(y_pred)[1], dtype="int64")
+    label_length = tf.cast(tf.shape(y_true)[1], dtype="int64")
 
+    input_length = input_length * tf.ones(shape=(batch_len, 1), dtype="int64")
+    label_length = label_length * tf.ones(shape=(batch_len, 1), dtype="int64")
+
+    losses = tf.keras.backend.ctc_batch_cost(y_true, y_pred, input_length, label_length)
+    loss = tf.reduce_mean(losses)
+    print(loss.shape)
+    return loss
+
+
+def dummy_loss_func(y_true, y_pred):
+    return tf.reduce_sum(tf.constant([1]))
 
 num_layers=6
 units=512
@@ -352,17 +306,9 @@ dropout=0.1
 vocab_size=config.VOCAB_SIZE+10
 initial_step=4000
 
-enc_input = Input(shape=(None,), name="enc_input")
 dec_input = Input(shape=(None,), name="dec_input")
-enc_padding_mask, look_ahead_mask, dec_padding_mask = create_masks(enc_input, dec_input)
-
-encoder = Encoder(num_layers=num_layers,
-                       d_model=d_model,
-                       num_heads=num_heads,
-                       dff=units,
-                       input_vocab_size=vocab_size,
-                       maximum_position_encoding=vocab_size,
-                       rate=dropout)
+# enc_shift = Input(shape=(None,), name="enc_shift")
+enc_padding_mask, look_ahead_mask, dec_padding_mask = create_masks(dec_input, dec_input)
 
 decoder = Decoder(num_layers=num_layers,
                        d_model=d_model,
@@ -372,8 +318,7 @@ decoder = Decoder(num_layers=num_layers,
                        maximum_position_encoding=vocab_size,
                        rate=dropout)
 
-enc_output = encoder(enc_input, enc_padding_mask)
-dec_output, _ = decoder(dec_input, enc_output, look_ahead_mask, dec_padding_mask)
+dec_output = decoder(dec_input, dec_input, look_ahead_mask, dec_padding_mask)
 
 learning_rate = CustomSchedule(d_model=d_model, initial_step=initial_step)
 
@@ -389,7 +334,6 @@ def accuracy_logit(real, logit):
     return accuracy_pred(real, pred)
 
 def accuracy_pred(real, pred):
-    # print(pred.shape, real.shape)
     pred = tf.pad(pred, [[0,0],[0,1]])
     real = tf.pad(real, [[0,0],[0,1]])
     # return pred
@@ -433,20 +377,36 @@ def wer_pred(real, pred):
     pred_sentences = []
     for real_, pred_ in zip(real_list, pred_list):
         real_sentence = bpe_tokenizer.detokenize(real_)
-        if real_sentence == "":
-            print(real_)
         real_sentences.append(real_sentence)
         pred_sentence = bpe_tokenizer.detokenize(pred_)
         pred_sentences.append(pred_sentence)
     return wer(real_sentences, pred_sentences)
 
+def logit_greedy_decoder(logit):
+    ctc_logits = tf.transpose(logit, perm=[1,0,2])
+    print(ctc_logits.shape)
+    logit_length = tf.cast(tf.ones_like(logit)[:,0,0]*MAX_TOKENS, dtype=tf.int32)
+    # print(logit_length); exit()
+    decoded_output, _ = tf.nn.ctc_greedy_decoder(
+                ctc_logits, 
+                logit_length, 
+                merge_repeated=True, 
+                blank_index=0,
+            )
+    output = decoded_output
+    print(output.shape); exit()
+    return 
+
 def wer_logit(real, logit):
     pred = logit_to_pred(logit)
+    # print(pred.shape)
+    # print(real.shape)
+    # exit()
     return wer_pred(real, pred)
 
 
 # train_accuracy = tf.keras.metrics.Mean(name='train_accuracy')
-model = Model(inputs=[enc_input, dec_input], outputs=dec_output, name="transformer")
+model = Model(inputs=dec_input, outputs=dec_output, name="transformer")
 # WER compiler
 # model.compile(optimizer=optimizer, 
 #               loss=[loss_func, dummy_loss_func], 
@@ -454,7 +414,11 @@ model = Model(inputs=[enc_input, dec_input], outputs=dec_output, name="transform
 #               metrics=[[accuracy_logit, wer_logit], [accuracy_pred, wer_pred]],
 #               run_eagerly=True)
 
-
+# Fast compiler
+model.compile(optimizer=optimizer, 
+              loss=loss_func, 
+              metrics=[accuracy_logit],
+              run_eagerly=True)
 
 from src.tokenizer.bpe import BPE
 from src.util import config
@@ -466,7 +430,7 @@ tokenizer_path = config.TOKENIZER_MODEL_PATH
 bpe_tokenizer = BPE.load(tokenizer_path)
 lookup_table = bpe_tokenizer.get_tf_lookup_table()
 BUFFER_SIZE = 20000
-BATCH_SIZE = 128
+BATCH_SIZE = 16
 
 
 if config.MODE == 'small':
@@ -478,6 +442,7 @@ file_paths = []
 for file in os.listdir(data_path):
     if file.startswith('part'):
         file_paths.append(os.path.join(data_path, file))
+print(file_paths)
 
 
 
@@ -487,21 +452,20 @@ def to_ids(x):
     l = tf.strings.split(x, '|')
     return tf.RaggedTensor.from_tensor(tf.expand_dims(lookup_table[tf.strings.split(l[0], "~")],1)), tf.RaggedTensor.from_tensor(tf.expand_dims(lookup_table[tf.strings.split(l[1], '~')],1))
 
-def make_batches(ds, batch_size):
-    return (ds.batch(batch_size).cache().prefetch(tf.data.AUTOTUNE))
+def make_batches(ds):
+    return (ds.batch(BATCH_SIZE).cache().prefetch(tf.data.AUTOTUNE))
 
 def reshape(error, clean):
     error = error[:,:,0].to_tensor(shape=(None, MAX_TOKENS+1))
     error_ids = error[:,1:]
     clean = clean[:,:,0].to_tensor(shape=(None, MAX_TOKENS+1))
-    error_shifted_ids = error[:,:-1]
     output_ids = clean[:,1:]
-    return (error_ids, error_shifted_ids), output_ids
+    return error_ids, output_ids
 
-def get_train_batches(file_path, batch_size):
+def get_train_batches(file_path):
     train_examples = tf.data.TextLineDataset(file_path)
     train_examples = train_examples.map(to_ids)
-    train_batches = make_batches(train_examples, batch_size)
+    train_batches = make_batches(train_examples)
     train_batches = train_batches.map(reshape)
     return train_batches
 
@@ -510,7 +474,7 @@ class CustomCallback(tf.keras.callbacks.Callback):
         ckpt_manager.save()
         # print('checkpoint created on epoch end')
 # train_suffix = 'test1small' # --> 256 d_model
-train_suffix = 'full512' # --> 512 d_odel
+train_suffix = 'CTCtestv2' # --> 512 d_odel
 checkpoint_path = f'./checkpoints/{train_suffix}/train'
 
 ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer)
@@ -524,36 +488,17 @@ if ckpt_manager.latest_checkpoint:
 
 from libs.datil.flag import Flag
 
-# model.compile(optimizer=optimizer, 
-#               loss=[loss_func, dummy_loss_func], 
-#               loss_weights=[1, 0], 
-#               metrics=[[accuracy_logit, wer_logit], [accuracy_pred, wer_pred]],
-#               run_eagerly=True)
 if __name__ == "__main__":
     for epoch in range(50):
-        valid_batches = get_train_batches(config.VALIDATION_PATH, BATCH_SIZE)
-        # Fast compiler
-        model.compile(optimizer=optimizer, 
-                    loss=loss_func, 
-                    metrics=accuracy_logit)
-
         print(f"epoch:{epoch}")
         flag = Flag(f'epoch_{epoch}_{train_suffix}')
         for file_path in file_paths:
             if not flag.exists(file_path):
                 print(file_path)
-                train_batches = get_train_batches(file_path, BATCH_SIZE)
+                train_batches = get_train_batches(file_path)
                 # for (error, error_shifted), clean in train_batches:
                 #     print(accuracy_pred(clean, error))
                 model.fit(train_batches, epochs=1, callbacks=[CustomCallback()])
                 flag.put(file_path)
-                model.compile(loss=loss_func, metrics=wer_logit, run_eagerly=True)
-                valid_logits = model.evaluate(valid_batches)
-                print(valid_logits)
-                # Fast compiler
-                model.compile(optimizer=optimizer, 
-                            loss=loss_func, 
-                            metrics=accuracy_logit)
-
 
 

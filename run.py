@@ -78,15 +78,21 @@ from src.tokenizer.bpe import BPE
 #     BPE(input_files, model_path).train()
 #     flag.put(model_path)
 
-from src.dataset.builder import Preprocess, Corrupted, CleanCorrupted, Shrink
+from src.dataset.builder import Preprocess, Corrupted, CleanCorrupted, Shrink, Validation
 
-flag = Flag('clean.corrupted')
-if config.MODE == 'small':
-    input_file = config.CC100_PREPROCESSED_SMALL_PATH
-    output_file = config.CC100_CLEAN_CORRUPTED_SMALL_PATH
-else:
-    input_file = config.CC100_PREPROCESSED_PATH
-    output_file = config.CC100_CLEAN_CORRUPTED_PATH
+# flag = Flag('clean.corrupted')
+# if config.MODE == 'small':
+#     input_file = config.CC100_PREPROCESSED_SMALL_PATH
+#     output_file = config.CC100_CLEAN_CORRUPTED_SMALL_PATH
+# else:
+#     input_file = config.CC100_PREPROCESSED_PATH
+#     output_file = config.CC100_CLEAN_CORRUPTED_PATH
+# if not flag.exists(output_file):
+#     CleanCorrupted(input_file, output_file).run()
+#     flag.put(output_file)
+
+flag = Flag('validation')
+output_file = config.VALIDATION_PATH
 if not flag.exists(output_file):
-    CleanCorrupted(input_file, output_file).run()
+    Validation(output_file).run()
     flag.put(output_file)

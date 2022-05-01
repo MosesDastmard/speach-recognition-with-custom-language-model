@@ -10,6 +10,7 @@ CC100_CORRUPTED_PATH = DATA_PATH + "it.corrupted.txt"
 CC100_CORRUPTED_SMALL_PATH = DATA_PATH + "it.corrupted.small.txt"
 CC100_CLEAN_CORRUPTED_PATH = DATA_PATH + "it.clean.corrupted.txt"
 CC100_CLEAN_CORRUPTED_SMALL_PATH = DATA_PATH + "it.clean.corrupted.small.txt"
+VALIDATION_PATH = DATA_PATH + "validation.txt"
 MAX_TOKEN_INPUT = 32
 CHAR_SET = [
             ' ',

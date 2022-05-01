@@ -1,4 +1,3 @@
-from sklearn import metrics
 import tensorflow as tf
 from src.util import config
 import os
@@ -332,17 +331,44 @@ def create_look_ahead_mask(size):
     return mask  # (seq_len, seq_len)
 
 
+@tf.function
 def loss_func(y_true, y_pred):
-    y_pred = y_pred
-    loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
-    mask = tf.math.logical_not(tf.math.equal(y_true, 0))
-    loss_ = loss_object(y_true, y_pred)
+    label_length = tf.ones_like(y_true)[:,0]*MAX_TOKENS
+    # logit_length = tf.constant(y_pred.shape[1], dtype=tf.int32, shape=y_pred.shape[0])
+    # print(y_true.shape)
+    # print(y_pred.shape)
+    # print(label_length.shape)
+    # print(logit_length.shape)
+    # exit()
+    losses = tf.nn.ctc_loss(
+                            labels=y_true,
+                            logits=y_pred,
+                            label_length=label_length,
+                            logit_length=label_length,
+                            logits_time_major=False,
+                            blank_index=0,
+                            )
+    # losses = tf.keras.backend.ctc_batch_cost(y_true, y_pred, input_length, label_length)
+    return tf.reduce_mean(losses)
 
-    mask = tf.cast(mask, dtype=loss_.dtype)
-    loss_ *= mask
 
-    return tf.reduce_sum(loss_) / tf.reduce_sum(mask)
+def CTCLoss(y_true, y_pred):
+    # Compute the training-time loss value
+    batch_len = tf.cast(tf.shape(y_true)[0], dtype="int64")
+    input_length = tf.cast(tf.shape(y_pred)[1], dtype="int64")
+    label_length = tf.cast(tf.shape(y_true)[1], dtype="int64")
 
+    input_length = input_length * tf.ones(shape=(batch_len, 1), dtype="int64")
+    label_length = label_length * tf.ones(shape=(batch_len, 1), dtype="int64")
+
+    losses = tf.keras.backend.ctc_batch_cost(y_true, y_pred, input_length, label_length)
+    loss = tf.reduce_mean(losses)
+    print(loss.shape)
+    return loss
+
+
+def dummy_loss_func(y_true, y_pred):
+    return tf.reduce_sum(tf.constant([1]))
 
 num_layers=6
 units=512
@@ -389,7 +415,6 @@ def accuracy_logit(real, logit):
     return accuracy_pred(real, pred)
 
 def accuracy_pred(real, pred):
-    # print(pred.shape, real.shape)
     pred = tf.pad(pred, [[0,0],[0,1]])
     real = tf.pad(real, [[0,0],[0,1]])
     # return pred
@@ -433,8 +458,6 @@ def wer_pred(real, pred):
     pred_sentences = []
     for real_, pred_ in zip(real_list, pred_list):
         real_sentence = bpe_tokenizer.detokenize(real_)
-        if real_sentence == "":
-            print(real_)
         real_sentences.append(real_sentence)
         pred_sentence = bpe_tokenizer.detokenize(pred_)
         pred_sentences.append(pred_sentence)
@@ -454,7 +477,11 @@ model = Model(inputs=[enc_input, dec_input], outputs=dec_output, name="transform
 #               metrics=[[accuracy_logit, wer_logit], [accuracy_pred, wer_pred]],
 #               run_eagerly=True)
 
-
+# Fast compiler
+model.compile(optimizer=optimizer, 
+              loss=loss_func, 
+              metrics=[accuracy_logit, wer_logit],
+              run_eagerly=True)
 
 from src.tokenizer.bpe import BPE
 from src.util import config
@@ -466,7 +493,7 @@ tokenizer_path = config.TOKENIZER_MODEL_PATH
 bpe_tokenizer = BPE.load(tokenizer_path)
 lookup_table = bpe_tokenizer.get_tf_lookup_table()
 BUFFER_SIZE = 20000
-BATCH_SIZE = 128
+BATCH_SIZE = 16
 
 
 if config.MODE == 'small':
@@ -478,6 +505,7 @@ file_paths = []
 for file in os.listdir(data_path):
     if file.startswith('part'):
         file_paths.append(os.path.join(data_path, file))
+print(file_paths)
 
 
 
@@ -487,8 +515,8 @@ def to_ids(x):
     l = tf.strings.split(x, '|')
     return tf.RaggedTensor.from_tensor(tf.expand_dims(lookup_table[tf.strings.split(l[0], "~")],1)), tf.RaggedTensor.from_tensor(tf.expand_dims(lookup_table[tf.strings.split(l[1], '~')],1))
 
-def make_batches(ds, batch_size):
-    return (ds.batch(batch_size).cache().prefetch(tf.data.AUTOTUNE))
+def make_batches(ds):
+    return (ds.batch(BATCH_SIZE).cache().prefetch(tf.data.AUTOTUNE))
 
 def reshape(error, clean):
     error = error[:,:,0].to_tensor(shape=(None, MAX_TOKENS+1))
@@ -498,10 +526,10 @@ def reshape(error, clean):
     output_ids = clean[:,1:]
     return (error_ids, error_shifted_ids), output_ids
 
-def get_train_batches(file_path, batch_size):
+def get_train_batches(file_path):
     train_examples = tf.data.TextLineDataset(file_path)
     train_examples = train_examples.map(to_ids)
-    train_batches = make_batches(train_examples, batch_size)
+    train_batches = make_batches(train_examples)
     train_batches = train_batches.map(reshape)
     return train_batches
 
@@ -510,7 +538,7 @@ class CustomCallback(tf.keras.callbacks.Callback):
         ckpt_manager.save()
         # print('checkpoint created on epoch end')
 # train_suffix = 'test1small' # --> 256 d_model
-train_suffix = 'full512' # --> 512 d_odel
+train_suffix = 'CTCtest11' # --> 512 d_odel
 checkpoint_path = f'./checkpoints/{train_suffix}/train'
 
 ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer)
@@ -524,36 +552,17 @@ if ckpt_manager.latest_checkpoint:
 
 from libs.datil.flag import Flag
 
-# model.compile(optimizer=optimizer, 
-#               loss=[loss_func, dummy_loss_func], 
-#               loss_weights=[1, 0], 
-#               metrics=[[accuracy_logit, wer_logit], [accuracy_pred, wer_pred]],
-#               run_eagerly=True)
 if __name__ == "__main__":
     for epoch in range(50):
-        valid_batches = get_train_batches(config.VALIDATION_PATH, BATCH_SIZE)
-        # Fast compiler
-        model.compile(optimizer=optimizer, 
-                    loss=loss_func, 
-                    metrics=accuracy_logit)
-
         print(f"epoch:{epoch}")
         flag = Flag(f'epoch_{epoch}_{train_suffix}')
         for file_path in file_paths:
             if not flag.exists(file_path):
                 print(file_path)
-                train_batches = get_train_batches(file_path, BATCH_SIZE)
+                train_batches = get_train_batches(file_path)
                 # for (error, error_shifted), clean in train_batches:
                 #     print(accuracy_pred(clean, error))
                 model.fit(train_batches, epochs=1, callbacks=[CustomCallback()])
                 flag.put(file_path)
-                model.compile(loss=loss_func, metrics=wer_logit, run_eagerly=True)
-                valid_logits = model.evaluate(valid_batches)
-                print(valid_logits)
-                # Fast compiler
-                model.compile(optimizer=optimizer, 
-                            loss=loss_func, 
-                            metrics=accuracy_logit)
-
 
 

@@ -10,30 +10,27 @@ from src.util.functions import purify_text
 from src.util.detector import Detector
 mapper = Detector().load(config.MAPPING_MODEL_PATH)
 from src.tokenizer.bpe import BPE
-
+from .loader import Loader
 if config.MODE == 'small':
     bpe_tokenizer = BPE.load(config.TOKENIZER_MODEL_SMALL_PATH)
 else:
     bpe_tokenizer = BPE.load(config.TOKENIZER_MODEL_PATH)
 
-def join_tokens(clean_sentence):
-    corrupted_sentence = mapper(clean_sentence)
+
+def join_tokens(corrupted_sentence, clean_sentence):
     tokens_clean = bpe_tokenizer.tokenize(clean_sentence, result='tokens')
     tokens_corrupted = bpe_tokenizer.tokenize(corrupted_sentence, result='tokens')
-    # mutual_len = max([len(tokens_clean), len(tokens_corrupted)])
-    # if mutual_len > len(tokens_clean):
-    #     for _ in range(mutual_len-len(tokens_clean)):
-    #         tokens_clean.insert(-1, '[PAD]')
+    if len(tokens_clean) >= config.MAX_TOKEN_INPUT:
+        return []
+    if len(tokens_corrupted) >= config.MAX_TOKEN_INPUT:
+        return []
     joint_tokens = "~".join(tokens_corrupted) + "|" + "~".join(tokens_clean)
-    return joint_tokens
+    return [joint_tokens]
 
-def filter(token_format_sentence):
-    corrupted_token_format_sentence, clean_token_format_sentence = token_format_sentence.split("|")
-    if corrupted_token_format_sentence.count("~") >= config.MAX_TOKEN_INPUT:
-        return False
-    if clean_token_format_sentence.count("~") >= config.MAX_TOKEN_INPUT:
-        return False
-    return True
+def generate_line(clean_sentence):
+    corrupted_sentence = mapper(clean_sentence)
+    return join_tokens(corrupted_sentence, clean_sentence)
+
 
 def slice_sentence(sentence):
     window = int(config.MAX_TOKEN_INPUT*0.7)
@@ -81,8 +78,7 @@ class Session:
             ref_rdd = ref_rdd.filter(lambda x: len(word_tokenize(x)) > 3)
         if self.mode == 'clean.corrupted':
             ref_rdd = ref_rdd.flatMap(slice_sentence)
-            ref_rdd = ref_rdd.map(join_tokens)
-            ref_rdd = ref_rdd.filter(filter)
+            ref_rdd = ref_rdd.flatMap(generate_line)
         if self.mode == 'corrupted':
             ref_rdd = ref_rdd.map(mapper)
         os.system(f"rm -rf {self.output_text_file_path}")
@@ -154,6 +150,27 @@ class Shrink:
     def run(self):
         command = f'head -{config.CC100_SMALL_SIZE} {self.input_text_file} >> {self.output_text_file}'
         os.system(command)
+
+
+class Validation:
+    def __init__(self, validation_path):
+        self.validation_path = validation_path
+        self.loader = Loader()
+    def read(self):
+        self.clean_sentences = self.loader.get_actual_sentences()
+        self.corrupted_sentences = self.loader.get_w2v_predictions()
+    
+    def create(self):
+        for corrupted, clean in zip(self.clean_sentences, self.corrupted_sentences):
+            line = join_tokens(corrupted_sentence=corrupted, clean_sentence=clean)
+            if len(line) > 0:
+                with open(self.validation_path, 'a') as f:
+                    f.write(line[0] + "\n")
+
+    def run(self):
+        self.read()
+        self.create()
+
 
 if __name__ == "__main__":
     parser = ArgumentParser()
