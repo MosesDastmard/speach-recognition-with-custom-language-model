@@ -172,6 +172,23 @@ class Validation:
         self.create()
 
 
+class SimpleBiLSTMCharLevel:
+    class Train:
+        def __init__(self) -> None:
+            self.clean_text_path = config.CC100_PREPROCESSED_PATH
+            self.output_path = config.SimpleBiLSTMCharLevel_train_path
+        
+        def start_saprk_session(self):
+            cores_number = multiprocessing.cpu_count()
+            self.spark = SparkSession.builder.appName('dataset_builder').master(f'local[{cores_number}]').getOrCreate()
+            print(f"spark runs on {cores_number} cores.")
+        
+        def run(self):
+            self.start_saprk_session()
+            
+
+
+
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument('--input_file', type=str, help='input text file')

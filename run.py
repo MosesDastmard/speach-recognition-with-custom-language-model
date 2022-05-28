@@ -75,7 +75,7 @@ from src.tokenizer.bpe import BPE
 #     model_path = config.TOKENIZER_MODEL_PATH
 
 # if not flag.exists(model_path):
-#     BPE(input_files, model_path).train()
+    BPE(input_files, model_path).train()
 #     flag.put(model_path)
 
 from src.dataset.builder import Preprocess, Corrupted, CleanCorrupted, Shrink, Validation

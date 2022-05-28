@@ -5,6 +5,7 @@ from libs.datil.flag import Flag
 from numpy import loadtxt
 import numpy as np
 from src.util.functions import purify_text
+from tqdm import tqdm
 from jiwer import wer
 
 class Loader:
@@ -15,7 +16,8 @@ class Loader:
         self.train_df = pd.read_csv(train_path, sep='\t')
         self.flag = Flag('w2v')
     
-    def get_clip_path(self, clip_name):
+    @staticmethod
+    def get_clip_path(clip_name):
         return os.path.join(config.CLIPS_PATH, clip_name)
     
     def is_test(self, clip_name):
@@ -82,10 +84,13 @@ class Loader:
             text = purify_text(text)
             return text
 
-    def get_actual_sentences(self):
-        clip_names = self.get_test()
+    def get_actual_sentences(self, mode='test'):
+        if mode == 'test':
+            clip_names = self.get_test()
+        elif mode == 'train':
+            clip_names = self.get_train()
         actuals = []
-        for clip_name in clip_names:
+        for clip_name in tqdm(clip_names):
             actual_sentence = self.get_actual_sentence(clip_name)
             actuals.append(actual_sentence)
         return actuals

@@ -140,3 +140,4 @@ checkpoints/
 .vscode/
 *.zip
 *.txt
+backup/*.*
