@@ -187,7 +187,10 @@ class SimpleBiLSTMCharLevel:
             self.start_saprk_session()
             
 
-
+def string_list_to_text(string_list, file_path):
+    with open(file_path, 'w') as f:
+        string_list = [line + "\n" for line in string_list]
+        f.writelines(string_list)
 
 if __name__ == "__main__":
     parser = ArgumentParser()

@@ -252,6 +252,7 @@ class Detector:
     def map_chars(chunk, mapping):
         if chunk in mapping.keys():
             candidates = mapping[chunk]
+            print(chunk, candidates)
             rnd = np.random.randint(len(candidates))
             chunk_out = candidates[rnd]
         else:
@@ -263,7 +264,10 @@ class Detector:
         mapping = json.load(open(model_path, 'r'))
         def mapper(text):
             text_len = len(text)
-            indices = np.random.randint(low=1, high=4, size=text_len)
+            # p=np.array([2.95e-5, 0.00088, 0.01344, 0.12629, 0.8593])
+            # p = p/np.sum(p)
+            indices = np.random.choice([1,2,3,4], text_len, replace=True)
+            # indices = np.random.randint(low=1, high=5, size=text_len)
             indices = np.concatenate([[0], indices])
             indices = np.cumsum(indices)
             indices = indices[indices < text_len]
@@ -274,6 +278,7 @@ class Detector:
             return augmented_text
         
         return mapper
+     
 
 
         

@@ -5,6 +5,8 @@ from nltk import word_tokenize
 import numpy as np
 import pulp as plp
 import pandas as pd
+
+
 class Process:
     def __init__(self, command) -> None:
         self.command = command
@@ -12,6 +14,13 @@ class Process:
     def run(self):
         subprocess.run(self.command, shell=True, check=True)
 
+def match_text(text_a, text_b):
+    len_dif = len(text_a) - len(text_b)
+    if len_dif > 0:
+        text_b += config.NULL_CHAR * len_dif
+    if len_dif < 0:
+        text_a += config.NULL_CHAR * (-len_dif)
+    return text_a, text_b
 
 def purify_text(text):
     text = text.lower()

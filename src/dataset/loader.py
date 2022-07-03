@@ -101,6 +101,10 @@ class Loader:
     def get_train(self):
         return self.train_df['path'].tolist()
 
+    def get_train_actual_senteneces(self):
+        return self.train_df['sentence'].apply(purify_text).values.tolist()
+
+
     def get_WER_W2V(self):
         actual_sentences, predicted_sentences_w2v = self.get_W2V_evaluation_data()
         return wer(actual_sentences, predicted_sentences_w2v)
