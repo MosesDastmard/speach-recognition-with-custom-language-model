@@ -134,10 +134,10 @@ data
 docs
 *.ipynb
 libs/
-model/
+saved_model/
 experimental/
 checkpoints/
 .vscode/
 *.zip
 *.txt
-backup/*.*
+backup/
